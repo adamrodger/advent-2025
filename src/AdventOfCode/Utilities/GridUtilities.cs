@@ -10,34 +10,27 @@ namespace AdventOfCode.Utilities;
 /// </summary>
 public static class GridUtilities
 {
-    private static readonly (int x, int y)[] Deltas =
-    {
+    private static readonly (int x, int y)[] Deltas4 =
+    [
         (0, -1),
         (-1, 0),
         (1, 0),
         (0, 1)
-    };
+    ];
+
+    private static readonly (int x, int y)[] Deltas8 =
+    [
+        (-1, -1), (0, -1), (1, -1),
+        (-1, 0),           (1, 0),
+        (-1, 1),  (0, 1),  (1, 1)
+    ];
 
     /// <summary>
     /// Convert the input into a char grid
     /// </summary>
     /// <param name="input">Input</param>
     /// <returns>Char grid</returns>
-    public static char[,] ToGrid(this IReadOnlyList<string> input)
-    {
-        // y,x remember, not x,y
-        char[,] grid = new char[input.Count, input[0].Length];
-
-        for (int y = 0; y < input.Count; y++)
-        {
-            for (int x = 0; x < input[y].Length; x++)
-            {
-                grid[y, x] = input[y][x];
-            }
-        }
-
-        return grid;
-    }
+    public static char[,] ToGrid(this IReadOnlyList<string> input) => input.ToGrid<char>();
 
     /// <summary>
     /// Parse the grid
@@ -64,23 +57,29 @@ public static class GridUtilities
     /// Get the adjacent 4 values from the given position
     /// </summary>
     /// <param name="grid">Grid</param>
+    /// <param name="point">Current point</param>
+    /// <typeparam name="T">Grid type</typeparam>
+    /// <returns>Adjacent values</returns>
+    public static IEnumerable<T> Adjacent4<T>(this T[,] grid, Point2D point) => Adjacent4(grid, point.X, point.Y);
+
+    /// <summary>
+    /// Get the adjacent 4 values from the given position
+    /// </summary>
+    /// <param name="grid">Grid</param>
     /// <param name="x">X coordinate</param>
     /// <param name="y">Y coordinate</param>
     /// <typeparam name="T">Grid type</typeparam>
     /// <returns>Adjacent values</returns>
-    public static IEnumerable<T> Adjacent4<T>(this T[,] grid, int x, int y)
-    {
-        foreach ((int dx, int dy) in Deltas)
-        {
-            int nx = x + dx;
-            int ny = y + dy;
+    public static IEnumerable<T> Adjacent4<T>(this T[,] grid, int x, int y) => Adjacent(grid, x, y, Deltas4);
 
-            if (nx >= 0 && ny >= 0 && nx < grid.GetLength(1) && ny < grid.GetLength(0))
-            {
-                yield return grid[ny, nx];
-            }
-        }
-    }
+    /// <summary>
+    /// Get the adjacent 4 positions from the given position
+    /// </summary>
+    /// <param name="grid">Grid</param>
+    /// <param name="point">Current point</param>
+    /// <typeparam name="T">Grid type</typeparam>
+    /// <returns>Adjacent positions</returns>
+    public static IEnumerable<Point2D> Adjacent4Positions<T>(this T[,] grid, Point2D point) => Adjacent4Positions(grid, point.X, point.Y);
 
     /// <summary>
     /// Get the adjacent 4 positions from the given position
@@ -90,30 +89,16 @@ public static class GridUtilities
     /// <param name="y">Y coordinate</param>
     /// <typeparam name="T">Grid type</typeparam>
     /// <returns>Adjacent positions</returns>
-    public static IEnumerable<Point2D> Adjacent4Positions<T>(this T[,] grid, Point2D point)
-        => grid.Adjacent4Positions(point.X, point.Y);
+    public static IEnumerable<Point2D> Adjacent4Positions<T>(this T[,] grid, int x, int y) => AdjacentPositions(grid, x, y, Deltas4);
 
     /// <summary>
-    /// Get the adjacent 4 positions from the given position
+    /// Get the adjacent 8 values from the given position
     /// </summary>
     /// <param name="grid">Grid</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
+    /// <param name="point">Current point</param>
     /// <typeparam name="T">Grid type</typeparam>
-    /// <returns>Adjacent positions</returns>
-    public static IEnumerable<Point2D> Adjacent4Positions<T>(this T[,] grid, int x, int y)
-    {
-        foreach ((int dx, int dy) in Deltas)
-        {
-            int nx = x + dx;
-            int ny = y + dy;
-
-            if (nx >= 0 && ny >= 0 && nx < grid.GetLength(1) && ny < grid.GetLength(0))
-            {
-                yield return (nx, ny);
-            }
-        }
-    }
+    /// <returns>Adjacent values</returns>
+    public static IEnumerable<T> Adjacent8<T>(this T[,] grid, Point2D point) => Adjacent8(grid, point.X, point.Y);
 
     /// <summary>
     /// Get the adjacent 8 values from the given position
@@ -123,118 +108,68 @@ public static class GridUtilities
     /// <param name="y">Y coordinate</param>
     /// <typeparam name="T">Grid type</typeparam>
     /// <returns>Adjacent values</returns>
-    public static IEnumerable<T> Adjacent8<T>(this T[,] grid, int x, int y)
+    public static IEnumerable<T> Adjacent8<T>(this T[,] grid, int x, int y) => Adjacent(grid, x, y, Deltas8);
+
+    /// <summary>
+    /// Get the adjacent 8 positions from the given position
+    /// </summary>
+    /// <param name="grid">Grid</param>
+    /// <param name="point">Current point</param>
+    /// <typeparam name="T">Grid type</typeparam>
+    /// <returns>Adjacent positions</returns>
+    public static IEnumerable<Point2D> Adjacent8Positions<T>(this T[,] grid, Point2D point) => Adjacent8Positions(grid, point.X, point.Y);
+
+    /// <summary>
+    /// Get the adjacent 8 positions from the given position
+    /// </summary>
+    /// <param name="grid">Grid</param>
+    /// <param name="x">X coordinate</param>
+    /// <param name="y">Y coordinate</param>
+    /// <typeparam name="T">Grid type</typeparam>
+    /// <returns>Adjacent positions</returns>
+    public static IEnumerable<Point2D> Adjacent8Positions<T>(this T[,] grid, int x, int y) => AdjacentPositions(grid, x, y, Deltas8);
+
+    /// <summary>
+    /// Get the adjacent values from the given position that are inside the grid
+    /// </summary>
+    /// <typeparam name="T">Grid type</typeparam>
+    /// <param name="grid">Grid</param>
+    /// <param name="x">Current X</param>
+    /// <param name="y">Current Y</param>
+    /// <param name="deltas">Deltas</param>
+    /// <returns>Adjacent values</returns>
+    public static IEnumerable<T> Adjacent<T>(T[,] grid, int x, int y, params IEnumerable<(int x, int y)> deltas)
     {
-        bool rowAbove = y - 1 >= 0;
-        bool rowBelow = y + 1 < grid.GetLength(0);
-        bool columnBefore = x - 1 >= 0;
-        bool columnAfter = x + 1 < grid.GetLength(1);
-
-        if (rowAbove && columnBefore)
+        foreach ((int dx, int dy) in deltas)
         {
-            yield return grid[y - 1, x - 1];
-        }
+            Point2D point = (x + dx, y + dy);
 
-        if (rowAbove)
-        {
-            yield return grid[y - 1, x];
-        }
-
-        if (rowAbove && columnAfter)
-        {
-            yield return grid[y - 1, x + 1];
-        }
-
-        if (columnBefore)
-        {
-            yield return grid[y, x - 1];
-        }
-
-        if (columnAfter)
-        {
-            yield return grid[y, x + 1];
-        }
-
-        if (rowBelow && columnBefore)
-        {
-            yield return grid[y + 1, x - 1];
-        }
-
-        if (rowBelow)
-        {
-            yield return grid[y + 1, x];
-        }
-
-        if (rowBelow && columnAfter)
-        {
-            yield return grid[y + 1, x + 1];
+            if (point.InBounds(grid))
+            {
+                yield return grid.At(point);
+            }
         }
     }
 
     /// <summary>
-    /// Get the adjacent 8 positions from the given position
+    /// Get the adjacent positions from the given position that are inside the grid
     /// </summary>
-    /// <param name="grid">Grid</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
     /// <typeparam name="T">Grid type</typeparam>
-    /// <returns>Adjacent positions</returns>
-    public static IEnumerable<Point2D> Adjacent8Positions<T>(this T[,] grid, Point2D point)
-        => grid.Adjacent8Positions(point.X, point.Y);
-
-    /// <summary>
-    /// Get the adjacent 8 positions from the given position
-    /// </summary>
     /// <param name="grid">Grid</param>
-    /// <param name="x">X coordinate</param>
-    /// <param name="y">Y coordinate</param>
-    /// <typeparam name="T">Grid type</typeparam>
+    /// <param name="x">Current X</param>
+    /// <param name="y">Current Y</param>
+    /// <param name="deltas">Deltas</param>
     /// <returns>Adjacent positions</returns>
-    public static IEnumerable<Point2D> Adjacent8Positions<T>(this T[,] grid, int x, int y)
+    public static IEnumerable<Point2D> AdjacentPositions<T>(T[,] grid, int x, int y, params IEnumerable<(int x, int y)> deltas)
     {
-        bool rowAbove = y - 1 >= 0;
-        bool rowBelow = y + 1 < grid.GetLength(0);
-        bool columnBefore = x - 1 >= 0;
-        bool columnAfter = x + 1 < grid.GetLength(1);
-
-        if (rowAbove && columnBefore)
+        foreach ((int dx, int dy) in deltas)
         {
-            yield return (x - 1, y - 1);
-        }
+            Point2D point = (x + dx, y + dy);
 
-        if (rowAbove)
-        {
-            yield return (x, y - 1);
-        }
-
-        if (rowAbove && columnAfter)
-        {
-            yield return (x + 1, y - 1);
-        }
-
-        if (columnBefore)
-        {
-            yield return (x - 1, y);
-        }
-
-        if (columnAfter)
-        {
-            yield return (x + 1, y);
-        }
-
-        if (rowBelow && columnBefore)
-        {
-            yield return (x - 1, y + 1);
-        }
-
-        if (rowBelow)
-        {
-            yield return (x, y + 1);
-        }
-
-        if (rowBelow && columnAfter)
-        {
-            yield return (x + 1, y + 1);
+            if (point.InBounds(grid))
+            {
+                yield return point;
+            }
         }
     }
 
