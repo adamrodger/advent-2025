@@ -13,44 +13,60 @@ namespace AdventOfCode
         public long Part1(string[] input)
         {
             IList<int[]> operands = input[..^1].Select(line => line.Numbers<int>()).ToArray();
-            string[] operations = input.Last().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] operations = input[^1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            return operations.Select((o, i) => PerformSum(o, operands.Select(c => c[i]))).Sum();
+            return operations.Select((o, i) =>
+                              {
+                                  IEnumerable<int> vertical = operands.Select(c => c[i]);
+
+                                  return o == "+"
+                                             ? vertical.Sum()
+                                             : vertical.Aggregate(1L, (l, r) => l * r);
+                              })
+                             .Sum();
         }
 
         public long Part2(string[] input)
         {
-            var lines = input[..^1];
-            var operands = new List<int>();
             long total = 0;
 
-            string[] operations = input.Last().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            int sumIndex = 0;
+            long currentSum = 0;
+            char currentOperation = ' ';
 
             for (int i = 0; i < input[0].Length; i++)
             {
-                ReadOnlySpan<char> verticalSlice = lines.Select(c => c[i]).Where(char.IsAsciiDigit).ToArray();
+                // parse the operand from a vertical layout with optional leading or trailing whitespace
+                int operand = input[..^1].Select(c => c[i])
+                                         .Where(char.IsAsciiDigit)
+                                         .Aggregate(0, (o, c) => o * 10 + (c - '0'));
 
-                if (verticalSlice.IsEmpty)
+                if (operand == 0)
                 {
-                    // start a new sum
-                    total += PerformSum(operations[sumIndex++], operands);
-                    operands.Clear();
+                    // between sums -- no operand is ever actually 0 in the input
+                    total += currentSum;
                     continue;
                 }
 
-                operands.Add(int.Parse(verticalSlice));
+                char newOperation = input[^1][i];
+
+                if (newOperation != ' ')
+                {
+                    // started new sum
+                    currentOperation = newOperation;
+                    currentSum = operand;
+                    continue;
+                }
+
+                // continue existing sum
+                currentSum = currentOperation == '+'
+                                 ? currentSum + operand
+                                 : currentSum * operand;
             }
 
             // finish the last sum
-            total += PerformSum(operations[sumIndex], operands);
+            total += currentSum;
 
             return total;
         }
-
-        private static long PerformSum(string operation, IEnumerable<int> operands)
-            => operation == "+"
-                   ? operands.Sum()
-                   : operands.Aggregate(1L, (l, r) => l * r);
     }
 }
