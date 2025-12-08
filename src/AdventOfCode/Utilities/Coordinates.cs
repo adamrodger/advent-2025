@@ -150,8 +150,13 @@ namespace AdventOfCode.Utilities
         }
 
         public int ManhattanDistance(Point3D other)
-        {
-            return Math.Abs(this.X - other.X) + Math.Abs(this.Y - other.Y) + Math.Abs(this.Z - other.Z);
-        }
+            => Math.Abs(this.X - other.X)
+             + Math.Abs(this.Y - other.Y)
+             + Math.Abs(this.Z - other.Z);
+
+        public double EuclidianDistance(Point3D other)
+            => Math.Sqrt(Math.Pow(this.X - other.X, 2) +
+                         Math.Pow(this.Y - other.Y, 2) +
+                         Math.Pow(this.Z - other.Z, 2));
     }
 }
