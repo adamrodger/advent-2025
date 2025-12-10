@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AdventOfCode.Utilities;
+using Microsoft.Z3;
 
 namespace AdventOfCode
 {
@@ -56,21 +57,18 @@ namespace AdventOfCode
             {
                 string[] split = line.Split(' ');
 
-                List<int> buttons = [];
+                List<ICollection<int>> buttons = [];
 
                 foreach (string section in split.Skip(1).TakeWhile(l => l.StartsWith('(')))
                 {
-                    buttons.Add(section.Numbers<int>().Select(n => (int)Math.Pow(10, n)).Sum());
+                    buttons.Add(section.Numbers<int>().ToArray());
                 }
 
-                int target = 0;
-
-                foreach ((int i, int x) in split.Last().Numbers<int>().Enumerate())
+                total += FewestButtonPresses2(new Machine2
                 {
-                    target += x * (int)Math.Pow(10, i);
-                }
-
-                total += FewestButtonPresses2(new Machine2 { Target = target, Buttons = buttons });
+                    Target = split.Last().Numbers<int>().ToArray(),
+                    Buttons = buttons
+                });
             }
 
             return total;
@@ -108,58 +106,45 @@ namespace AdventOfCode
 
         private static int FewestButtonPresses2(Machine2 machine)
         {
-            Queue<(int State, int Presses)> queue = new();
-            HashSet<int> visited = new();
+            var z3 = new Context();
+            Optimize opt = z3.MkOptimize();
 
-            queue.Enqueue((0, 0));
+            // create all the buttons as variables and constrain them to be >= 0
+            ArithExpr[] buttonVars = Enumerable.Range(0, machine.Buttons.Count)
+                                               .Select(i => z3.MkIntConst($"b_{i}"))
+                                               .Cast<ArithExpr>()
+                                               .ToArray();
 
-            while (queue.TryDequeue(out (int State, int Presses) current))
+            BoolExpr pressesNotNegative = buttonVars.Select(b => z3.MkGe(b, z3.MkInt(0)))
+                                                    .Aggregate((left, right) => z3.MkAnd(left, right));
+            opt.Add(pressesNotNegative);
+
+            // for each target counter, sum up all the buttons that affect it and constrain to equal the target
+            foreach ((int targetIndex, int target) in machine.Target.Enumerate())
             {
-                if (current.State == machine.Target)
+                var affectingButtons = new List<ArithExpr>();
+
+                foreach ((int i, ICollection<int> button) in machine.Buttons.Enumerate())
                 {
-                    return current.Presses;
+                    if (button.Contains(targetIndex))
+                    {
+                        affectingButtons.Add(buttonVars[i]);
+                    }
                 }
 
-                if (!visited.Add(current.State))
-                {
-                    // been here before in same or fewer presses
-                    continue;
-                }
-
-                // check if any counter has exceeded target
-                /*if (AnyDigitExceeds(current.State, machine.Target))
-                {
-                    // no point carrying on down this path
-                    continue;
-                }*/
-
-                // try every button
-                foreach (int button in machine.Buttons)
-                {
-                    queue.Enqueue((current.State + button, current.Presses + 1));
-                }
+                ArithExpr totalPresses = z3.MkAdd(affectingButtons);
+                opt.Add(z3.MkEq(totalPresses, z3.MkInt(target)));
             }
 
-            throw new InvalidOperationException("Well this is embarrassing... ran out of moves");
-        }
+            // minimize the total number of button presses
+            opt.MkMinimize(z3.MkAdd(buttonVars));
 
-        private static bool AnyDigitExceeds(int state, int target)
-        {
-            while (state > 0 || target > 0)
+            if (opt.Check() != Status.SATISFIABLE)
             {
-                int currentDigit = state % 10;
-                int targetDigit = target % 10;
-
-                if (currentDigit > targetDigit)
-                {
-                    return true;
-                }
-
-                state /= 10;
-                target /= 10;
+                throw new InvalidOperationException("Unable to find a solution");
             }
 
-            return false;
+            return buttonVars.Select(b => ((IntNum)opt.Model.Evaluate(b)).Int).Sum();
         }
 
         private class Machine
@@ -180,12 +165,12 @@ namespace AdventOfCode
             /// <summary>
             /// Target state to switch on the machine
             /// </summary>
-            public int Target { get; init; }
+            public IList<int> Target { get; init; }
 
             /// <summary>
-            /// Buttons, which are the number to add to the current state to create a new state
+            /// Buttons, which are the joltage counters that they increase
             /// </summary>
-            public ICollection<int> Buttons { get; init; }
+            public ICollection<ICollection<int>> Buttons { get; init; }
         }
     }
 }
